@@ -16,6 +16,7 @@ import net.fabricmc.loader.api.FabricLoader;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.RegistryOps;
 import net.minecraft.world.item.ItemStack;
@@ -234,15 +235,36 @@ public class MagicSavedItemsClient implements ClientModInitializer {
             return 0;
         }
 
-        // Save exact copy
+        // ==========================================
+        // COPY THE EXACT HELD ITEM
+        // ==========================================
+
+        ItemStack savedCopy = held.copy();
+
+        // ==========================================
+        // RENAME ONLY THE SAVED COPY
+        // ==========================================
+
+        savedCopy.set(
+                DataComponents.CUSTOM_NAME,
+                Component.literal(name)
+        );
+
+        // ==========================================
+        // STORE THE SAVED COPY
+        // ==========================================
+
         SavedItemStore
                 .getSavedItems()
                 .put(
                         name,
-                        held.copy()
+                        savedCopy
                 );
 
-        // Write to disk
+        // ==========================================
+        // WRITE TO DISK
+        // ==========================================
+
         if (!writeSavedItems()) {
 
             source.sendError(
@@ -255,7 +277,7 @@ public class MagicSavedItemsClient implements ClientModInitializer {
             return 0;
         }
 
-        // Safe Creative tab refresh
+        // Refresh Saved Items tab if open
         refreshSavedItemsTab();
 
         source.sendFeedback(
@@ -308,7 +330,6 @@ public class MagicSavedItemsClient implements ClientModInitializer {
             return 0;
         }
 
-        // Safe Creative tab refresh
         refreshSavedItemsTab();
 
         source.sendFeedback(
@@ -352,8 +373,6 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                                 == MagicSavedItemsMod.SAVED_ITEMS_TAB
                 ) {
 
-                    // Re-select only our tab.
-                    // This avoids manually rebuilding tab contents.
                     fabricScreen.setSelectedTab(
                             MagicSavedItemsMod.SAVED_ITEMS_TAB
                     );
