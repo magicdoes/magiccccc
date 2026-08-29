@@ -11,29 +11,85 @@ import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class MagicSavedItemsMod implements ModInitializer {
+
     public static final String MOD_ID = "magicsaveditems";
 
-    public static final ResourceKey<CreativeModeTab> SAVED_ITEMS_TAB_KEY = ResourceKey.create(
-            BuiltInRegistries.CREATIVE_MODE_TAB.key(),
-            Identifier.fromNamespaceAndPath(MOD_ID, "saved_items")
-    );
+    public static final ResourceKey<CreativeModeTab> SAVED_ITEMS_TAB_KEY =
+            ResourceKey.create(
+                    BuiltInRegistries.CREATIVE_MODE_TAB.key(),
+                    Identifier.fromNamespaceAndPath(
+                            MOD_ID,
+                            "saved_items"
+                    )
+            );
 
-    public static final CreativeModeTab SAVED_ITEMS_TAB = FabricCreativeModeTab.builder()
-            .title(Component.literal("Saved Items"))
-            .icon(() -> SavedItemStore.getSavedItems().values().stream()
-                    .findFirst()
-                    .map(ItemStack::copy)
-                    .orElseGet(() -> new ItemStack(Items.CHEST)))
-            .displayItems((parameters, output) -> {
-                for (ItemStack stack : SavedItemStore.getSavedItems().values()) {
-                    output.accept(stack.copy());
-                }
-            })
-            .build();
+    public static final CreativeModeTab SAVED_ITEMS_TAB =
+            FabricCreativeModeTab.builder()
+
+                    .title(
+                            Component.literal("Saved Items")
+                    )
+
+                    .icon(() ->
+                            SavedItemStore
+                                    .getSavedItems()
+                                    .values()
+                                    .stream()
+                                    .findFirst()
+                                    .map(ItemStack::copy)
+                                    .orElseGet(
+                                            () -> new ItemStack(Items.CHEST)
+                                    )
+                    )
+
+                    .displayItems((parameters, output) -> {
+
+                        List<ItemStack> added = new ArrayList<>();
+
+                        for (
+                                ItemStack stack :
+                                SavedItemStore
+                                        .getSavedItems()
+                                        .values()
+                        ) {
+
+                            boolean duplicate = false;
+
+                            for (ItemStack existing : added) {
+
+                                if (
+                                        ItemStack.isSameItemSameComponents(
+                                                existing,
+                                                stack
+                                        )
+                                ) {
+
+                                    duplicate = true;
+                                    break;
+                                }
+                            }
+
+                            if (!duplicate) {
+
+                                ItemStack copy =
+                                        stack.copy();
+
+                                added.add(copy);
+
+                                output.accept(copy);
+                            }
+                        }
+                    })
+
+                    .build();
 
     @Override
     public void onInitialize() {
+
         Registry.register(
                 BuiltInRegistries.CREATIVE_MODE_TAB,
                 SAVED_ITEMS_TAB_KEY,
