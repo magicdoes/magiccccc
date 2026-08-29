@@ -18,7 +18,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.RegistryOps;
-import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.ItemStack;
 
 import java.io.IOException;
@@ -44,12 +43,11 @@ public class MagicSavedItemsClient implements ClientModInitializer {
     public void onInitializeClient() {
 
         // ==========================================
-        // LOAD SAVED ITEMS WHEN JOINING
+        // LOAD ITEMS WHEN JOINING
         // ==========================================
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             loadSavedItems();
-            refreshSavedItemsTab();
         });
 
         // ==========================================
@@ -236,7 +234,7 @@ public class MagicSavedItemsClient implements ClientModInitializer {
             return 0;
         }
 
-        // Save exact copy of held item
+        // Save exact copy
         SavedItemStore
                 .getSavedItems()
                 .put(
@@ -244,7 +242,7 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                         held.copy()
                 );
 
-        // Write it to disk
+        // Write to disk
         if (!writeSavedItems()) {
 
             source.sendError(
@@ -257,7 +255,7 @@ public class MagicSavedItemsClient implements ClientModInitializer {
             return 0;
         }
 
-        // Immediately refresh Saved Items tab
+        // Safe Creative tab refresh
         refreshSavedItemsTab();
 
         source.sendFeedback(
@@ -310,7 +308,7 @@ public class MagicSavedItemsClient implements ClientModInitializer {
             return 0;
         }
 
-        // Immediately refresh Saved Items tab
+        // Safe Creative tab refresh
         refreshSavedItemsTab();
 
         source.sendFeedback(
@@ -325,7 +323,7 @@ public class MagicSavedItemsClient implements ClientModInitializer {
     }
 
     // ==========================================
-    // REFRESH ONLY SAVED ITEMS TAB
+    // SAFE CREATIVE TAB REFRESH
     // ==========================================
 
     private static void refreshSavedItemsTab() {
@@ -334,59 +332,28 @@ public class MagicSavedItemsClient implements ClientModInitializer {
 
         if (
                 minecraft.player == null ||
-                minecraft.level == null ||
-                minecraft.player.connection == null
+                minecraft.level == null
         ) {
             return;
         }
 
         try {
 
-            // Build parameters for this Creative tab
-            CreativeModeTab.ItemDisplayParameters parameters =
-                    new CreativeModeTab.ItemDisplayParameters(
-
-                            minecraft.player
-                                    .connection
-                                    .enabledFeatures(),
-
-                            minecraft.options
-                                    .operatorItemsTab()
-                                    .get()
-                                    &&
-                                    minecraft.player
-                                            .canUseGameMasterBlocks(),
-
-                            minecraft.level
-                                    .registryAccess()
-                    );
-
-            // Rebuild ONLY our Saved Items tab
-            MagicSavedItemsMod
-                    .SAVED_ITEMS_TAB
-                    .buildContents(parameters);
-
-            // ==========================================
-            // IF CREATIVE INVENTORY IS OPEN
-            // REFRESH IT IF SAVED ITEMS IS SELECTED
-            // ==========================================
-
             if (
                     minecraft.gui.screen()
-                            instanceof CreativeModeInventoryScreen
-                            creativeScreen
+                            instanceof CreativeModeInventoryScreen creativeScreen
             ) {
 
                 FabricCreativeModeInventoryScreen fabricScreen =
-                        (FabricCreativeModeInventoryScreen)
-                                creativeScreen;
+                        (FabricCreativeModeInventoryScreen) creativeScreen;
 
                 if (
                         fabricScreen.getSelectedTab()
-                                ==
-                                MagicSavedItemsMod.SAVED_ITEMS_TAB
+                                == MagicSavedItemsMod.SAVED_ITEMS_TAB
                 ) {
 
+                    // Re-select only our tab.
+                    // This avoids manually rebuilding tab contents.
                     fabricScreen.setSelectedTab(
                             MagicSavedItemsMod.SAVED_ITEMS_TAB
                     );
@@ -396,8 +363,7 @@ public class MagicSavedItemsClient implements ClientModInitializer {
         } catch (Exception exception) {
 
             System.err.println(
-                    "[MagicSavedItems] " +
-                            "Could not refresh Saved Items tab."
+                    "[MagicSavedItems] Could not refresh Saved Items tab."
             );
 
             exception.printStackTrace();
