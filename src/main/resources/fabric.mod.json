@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "magicsaveditems",
+  "version": "${version}",
+  "name": "Magic Saved Items",
+  "description": "Client-side saved item presets and a custom Creative tab.",
+  "authors": [
+    "MagicSMP"
+  ],
+  "environment": "client",
+  "entrypoints": {
+    "main": [
+      "com.magicsmp.saveditems.MagicSavedItemsMod"
+    ],
+    "client": [
+      "com.magicsmp.saveditems.MagicSavedItemsClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "~26.2",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}

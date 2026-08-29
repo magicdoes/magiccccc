@@ -1,0 +1,18 @@
+MAGIC SAVED ITEMS - EASY GITHUB BUILD
+
+1. Go to github.com and create a new EMPTY repository.
+2. Open the repository and choose "uploading an existing file".
+3. Extract this ZIP on your computer.
+4. Upload EVERYTHING inside the extracted folder, including the .github folder.
+   Do not upload the ZIP itself.
+5. Commit the files.
+6. Open the "Actions" tab on GitHub.
+7. Click "Build MagicSavedItems".
+8. Click "Run workflow" -> "Run workflow".
+9. Wait for the build to finish.
+10. Open the completed workflow.
+11. At the bottom, download the artifact named "MagicSavedItems-JAR".
+12. Extract that downloaded artifact ZIP.
+13. Put MagicSavedItems-1.0.0.jar into your Fabric mods folder.
+
+You do NOT need Java or Gradle installed on your own PC.
