@@ -9,7 +9,6 @@ import com.mojang.serialization.JsonOps;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
-import net.fabricmc.fabric.api.client.creativetab.v1.FabricCreativeModeTab;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
@@ -21,6 +20,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 
 public class MagicSavedItemsClient implements ClientModInitializer {
     public static final String MOD_ID = "magicsaveditems";
@@ -30,7 +30,6 @@ public class MagicSavedItemsClient implements ClientModInitializer {
             .getConfigDir()
             .resolve("magicsaveditems")
             .resolve("saved_items.json");
-
 
     @Override
     public void onInitializeClient() {
@@ -61,17 +60,26 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                     ClientCommands.literal("saveditems")
                             .executes(context -> {
                                 if (SavedItemStore.getSavedItems().isEmpty()) {
-                                    context.getSource().sendFeedback(Component.literal("§eNo saved items yet."));
+                                    context.getSource().sendFeedback(
+                                            Component.literal("§eNo saved items yet.")
+                                    );
                                     return 1;
                                 }
 
                                 context.getSource().sendFeedback(
-                                        Component.literal("§bSaved Items §7(" + SavedItemStore.getSavedItems().size() + "):")
+                                        Component.literal(
+                                                "§bSaved Items §7(" +
+                                                SavedItemStore.getSavedItems().size() +
+                                                "):"
+                                        )
                                 );
 
                                 for (String name : SavedItemStore.getSavedItems().keySet()) {
-                                    context.getSource().sendFeedback(Component.literal("§7- §f" + name));
+                                    context.getSource().sendFeedback(
+                                            Component.literal("§7- §f" + name)
+                                    );
                                 }
+
                                 return 1;
                             })
             );
@@ -80,64 +88,106 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                     ClientCommands.literal("reloadsaveditems")
                             .executes(context -> {
                                 loadSavedItems();
+
                                 context.getSource().sendFeedback(
-                                        Component.literal("§aReloaded §f" + SavedItemStore.getSavedItems().size() + " §asaved item(s).")
+                                        Component.literal(
+                                                "§aReloaded §f" +
+                                                SavedItemStore.getSavedItems().size() +
+                                                " §asaved item(s)."
+                                        )
                                 );
+
                                 return 1;
                             })
             );
         });
     }
 
-    private static int saveHeldItem(String name, net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source) {
+    private static int saveHeldItem(
+            String name,
+            net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source
+    ) {
         Minecraft minecraft = Minecraft.getInstance();
 
         if (minecraft.player == null || minecraft.level == null) {
-            source.sendError(Component.literal("You must be in a world/server."));
+            source.sendError(
+                    Component.literal("You must be in a world/server.")
+            );
             return 0;
         }
 
         if (name.isBlank()) {
-            source.sendError(Component.literal("Usage: /saveitem <name>"));
+            source.sendError(
+                    Component.literal("Usage: /saveitem <name>")
+            );
             return 0;
         }
 
         ItemStack held = minecraft.player.getMainHandItem();
 
         if (held.isEmpty()) {
-            source.sendError(Component.literal("Hold an item in your main hand first."));
+            source.sendError(
+                    Component.literal("Hold an item in your main hand first.")
+            );
             return 0;
         }
 
         SavedItemStore.getSavedItems().put(name, held.copy());
 
         if (!writeSavedItems()) {
-            source.sendError(Component.literal("The item was stored in memory, but the save file could not be written."));
+            source.sendError(
+                    Component.literal(
+                            "The item was stored in memory, but the save file could not be written."
+                    )
+            );
             return 0;
         }
 
-        source.sendFeedback(Component.literal("§aSaved §f" + name + "§a."));
-        source.sendFeedback(Component.literal("§7Reopen Creative inventory to refresh the Saved Items tab."));
+        source.sendFeedback(
+                Component.literal("§aSaved §f" + name + "§a.")
+        );
+
+        source.sendFeedback(
+                Component.literal(
+                        "§7Reopen Creative inventory to refresh the Saved Items tab."
+                )
+        );
+
         return 1;
     }
 
-    private static int deleteSavedItem(String name, net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source) {
+    private static int deleteSavedItem(
+            String name,
+            net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source
+    ) {
         if (SavedItemStore.getSavedItems().remove(name) == null) {
-            source.sendError(Component.literal("No saved item named \"" + name + "\"."));
+            source.sendError(
+                    Component.literal(
+                            "No saved item named \"" + name + "\"."
+                    )
+            );
             return 0;
         }
 
         if (!writeSavedItems()) {
-            source.sendError(Component.literal("Removed from memory, but the save file could not be written."));
+            source.sendError(
+                    Component.literal(
+                            "Removed from memory, but the save file could not be written."
+                    )
+            );
             return 0;
         }
 
-        source.sendFeedback(Component.literal("§cDeleted §f" + name + "§c."));
+        source.sendFeedback(
+                Component.literal("§cDeleted §f" + name + "§c.")
+        );
+
         return 1;
     }
 
     private static boolean writeSavedItems() {
         Minecraft minecraft = Minecraft.getInstance();
+
         if (minecraft.level == null) {
             return false;
         }
@@ -152,10 +202,13 @@ public class MagicSavedItemsClient implements ClientModInitializer {
 
             JsonObject root = new JsonObject();
 
-            for (Map.Entry<String, ItemStack> entry : SavedItemStore.getSavedItems().entrySet()) {
+            for (Map.Entry<String, ItemStack> entry :
+                    SavedItemStore.getSavedItems().entrySet()) {
+
                 JsonElement encoded = ItemStack.CODEC
                         .encodeStart(ops, entry.getValue())
                         .getOrThrow();
+
                 root.add(entry.getKey(), encoded);
             }
 
@@ -166,6 +219,7 @@ public class MagicSavedItemsClient implements ClientModInitializer {
             );
 
             return true;
+
         } catch (Exception exception) {
             exception.printStackTrace();
             return false;
@@ -188,7 +242,10 @@ public class MagicSavedItemsClient implements ClientModInitializer {
             );
 
             JsonElement fileJson = GSON.fromJson(
-                    Files.readString(SAVE_FILE, StandardCharsets.UTF_8),
+                    Files.readString(
+                            SAVE_FILE,
+                            StandardCharsets.UTF_8
+                    ),
                     JsonElement.class
             );
 
@@ -196,19 +253,27 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                 return;
             }
 
-            for (Map.Entry<String, JsonElement> entry : fileJson.getAsJsonObject().entrySet()) {
+            for (Map.Entry<String, JsonElement> entry :
+                    fileJson.getAsJsonObject().entrySet()) {
+
                 try {
                     ItemStack stack = ItemStack.CODEC
                             .parse(ops, entry.getValue())
                             .getOrThrow();
 
                     if (!stack.isEmpty()) {
-                        SavedItemStore.getSavedItems().put(entry.getKey(), stack);
+                        SavedItemStore.getSavedItems()
+                                .put(entry.getKey(), stack);
                     }
+
                 } catch (Exception ignored) {
-                    System.err.println("[MagicSavedItems] Could not load saved item: " + entry.getKey());
+                    System.err.println(
+                            "[MagicSavedItems] Could not load saved item: " +
+                            entry.getKey()
+                    );
                 }
             }
+
         } catch (IOException exception) {
             exception.printStackTrace();
         }
