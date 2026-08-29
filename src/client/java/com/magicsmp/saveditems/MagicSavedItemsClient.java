@@ -14,6 +14,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.RegistryOps;
+import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.ItemStack;
 
 import java.io.IOException;
@@ -23,8 +24,12 @@ import java.nio.file.Path;
 import java.util.Map;
 
 public class MagicSavedItemsClient implements ClientModInitializer {
+
     public static final String MOD_ID = "magicsaveditems";
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+
+    private static final Gson GSON = new GsonBuilder()
+            .setPrettyPrinting()
+            .create();
 
     private static final Path SAVE_FILE = FabricLoader.getInstance()
             .getConfigDir()
@@ -33,50 +38,111 @@ public class MagicSavedItemsClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+
+        // Load saved items whenever joining a world/server
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             loadSavedItems();
+            refreshCreativeTabs();
         });
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, buildContext) -> {
+
+            // ==========================================
+            // /saveitem <name>
+            // ==========================================
+
             dispatcher.register(
                     ClientCommands.literal("saveitem")
-                            .then(ClientCommands.argument("name", StringArgumentType.greedyString())
-                                    .executes(context -> {
-                                        String name = StringArgumentType.getString(context, "name").trim();
-                                        return saveHeldItem(name, context.getSource());
-                                    }))
+                            .then(
+                                    ClientCommands.argument(
+                                                    "name",
+                                                    StringArgumentType.greedyString()
+                                            )
+                                            .executes(context -> {
+
+                                                String name =
+                                                        StringArgumentType.getString(
+                                                                context,
+                                                                "name"
+                                                        ).trim();
+
+                                                return saveHeldItem(
+                                                        name,
+                                                        context.getSource()
+                                                );
+                                            })
+                            )
             );
+
+
+            // ==========================================
+            // /deleteitem <name>
+            // ==========================================
 
             dispatcher.register(
                     ClientCommands.literal("deleteitem")
-                            .then(ClientCommands.argument("name", StringArgumentType.greedyString())
-                                    .executes(context -> {
-                                        String name = StringArgumentType.getString(context, "name").trim();
-                                        return deleteSavedItem(name, context.getSource());
-                                    }))
+                            .then(
+                                    ClientCommands.argument(
+                                                    "name",
+                                                    StringArgumentType.greedyString()
+                                            )
+                                            .executes(context -> {
+
+                                                String name =
+                                                        StringArgumentType.getString(
+                                                                context,
+                                                                "name"
+                                                        ).trim();
+
+                                                return deleteSavedItem(
+                                                        name,
+                                                        context.getSource()
+                                                );
+                                            })
+                            )
             );
+
+
+            // ==========================================
+            // /saveditems
+            // ==========================================
 
             dispatcher.register(
                     ClientCommands.literal("saveditems")
                             .executes(context -> {
+
                                 if (SavedItemStore.getSavedItems().isEmpty()) {
+
                                     context.getSource().sendFeedback(
-                                            Component.literal("§eNo saved items yet.")
+                                            Component.literal(
+                                                    "§eNo saved items yet."
+                                            )
                                     );
+
                                     return 1;
                                 }
 
                                 context.getSource().sendFeedback(
                                         Component.literal(
                                                 "§bSaved Items §7(" +
-                                                SavedItemStore.getSavedItems().size() +
-                                                "):"
+                                                        SavedItemStore
+                                                                .getSavedItems()
+                                                                .size() +
+                                                        "):"
                                         )
                                 );
 
-                                for (String name : SavedItemStore.getSavedItems().keySet()) {
+                                for (
+                                        String name :
+                                        SavedItemStore
+                                                .getSavedItems()
+                                                .keySet()
+                                ) {
+
                                     context.getSource().sendFeedback(
-                                            Component.literal("§7- §f" + name)
+                                            Component.literal(
+                                                    "§7- §f" + name
+                                            )
                                     );
                                 }
 
@@ -84,16 +150,26 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                             })
             );
 
+
+            // ==========================================
+            // /reloadsaveditems
+            // ==========================================
+
             dispatcher.register(
                     ClientCommands.literal("reloadsaveditems")
                             .executes(context -> {
+
                                 loadSavedItems();
+
+                                refreshCreativeTabs();
 
                                 context.getSource().sendFeedback(
                                         Component.literal(
                                                 "§aReloaded §f" +
-                                                SavedItemStore.getSavedItems().size() +
-                                                " §asaved item(s)."
+                                                        SavedItemStore
+                                                                .getSavedItems()
+                                                                .size() +
+                                                        " §asaved item(s)."
                                         )
                                 );
 
@@ -103,114 +179,246 @@ public class MagicSavedItemsClient implements ClientModInitializer {
         });
     }
 
+
+    // ==========================================
+    // SAVE HELD ITEM
+    // ==========================================
+
     private static int saveHeldItem(
             String name,
             net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source
     ) {
+
         Minecraft minecraft = Minecraft.getInstance();
 
         if (minecraft.player == null || minecraft.level == null) {
+
             source.sendError(
-                    Component.literal("You must be in a world/server.")
+                    Component.literal(
+                            "You must be in a world/server."
+                    )
             );
+
             return 0;
         }
 
         if (name.isBlank()) {
-            source.sendError(
-                    Component.literal("Usage: /saveitem <name>")
-            );
-            return 0;
-        }
 
-        ItemStack held = minecraft.player.getMainHandItem();
-
-        if (held.isEmpty()) {
-            source.sendError(
-                    Component.literal("Hold an item in your main hand first.")
-            );
-            return 0;
-        }
-
-        SavedItemStore.getSavedItems().put(name, held.copy());
-
-        if (!writeSavedItems()) {
             source.sendError(
                     Component.literal(
-                            "The item was stored in memory, but the save file could not be written."
+                            "Usage: /saveitem <name>"
                     )
             );
+
             return 0;
         }
 
-        source.sendFeedback(
-                Component.literal("§aSaved §f" + name + "§a.")
-        );
+        ItemStack held =
+                minecraft.player.getMainHandItem();
+
+        if (held.isEmpty()) {
+
+            source.sendError(
+                    Component.literal(
+                            "Hold an item in your main hand first."
+                    )
+            );
+
+            return 0;
+        }
+
+
+        // Save an exact copy of the held item
+        SavedItemStore
+                .getSavedItems()
+                .put(
+                        name,
+                        held.copy()
+                );
+
+
+        // Write saved items to disk
+        if (!writeSavedItems()) {
+
+            source.sendError(
+                    Component.literal(
+                            "The item was stored in memory, " +
+                                    "but the save file could not be written."
+                    )
+            );
+
+            return 0;
+        }
+
+
+        // IMPORTANT:
+        // Rebuild Creative inventory immediately
+        refreshCreativeTabs();
+
 
         source.sendFeedback(
                 Component.literal(
-                        "§7Reopen Creative inventory to refresh the Saved Items tab."
+                        "§aSaved §f" +
+                                name +
+                                "§a."
                 )
         );
 
         return 1;
     }
 
+
+    // ==========================================
+    // DELETE SAVED ITEM
+    // ==========================================
+
     private static int deleteSavedItem(
             String name,
             net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source
     ) {
-        if (SavedItemStore.getSavedItems().remove(name) == null) {
+
+        if (
+                SavedItemStore
+                        .getSavedItems()
+                        .remove(name)
+                        == null
+        ) {
+
             source.sendError(
                     Component.literal(
-                            "No saved item named \"" + name + "\"."
+                            "No saved item named \"" +
+                                    name +
+                                    "\"."
                     )
             );
+
             return 0;
         }
+
 
         if (!writeSavedItems()) {
+
             source.sendError(
                     Component.literal(
-                            "Removed from memory, but the save file could not be written."
+                            "Removed from memory, " +
+                                    "but the save file could not be written."
                     )
             );
+
             return 0;
         }
 
+
+        // Immediately remove it from Creative tab
+        refreshCreativeTabs();
+
+
         source.sendFeedback(
-                Component.literal("§cDeleted §f" + name + "§c.")
+                Component.literal(
+                        "§cDeleted §f" +
+                                name +
+                                "§c."
+                )
         );
 
         return 1;
     }
 
+
+    // ==========================================
+    // REFRESH CREATIVE TABS
+    // ==========================================
+
+    private static void refreshCreativeTabs() {
+
+        Minecraft minecraft =
+                Minecraft.getInstance();
+
+        if (
+                minecraft.player == null ||
+                minecraft.level == null
+        ) {
+            return;
+        }
+
+        try {
+
+            CreativeModeTabs.tryRebuildTabContents(
+                    minecraft.player
+                            .connection
+                            .enabledFeatures(),
+
+                    minecraft.player
+                            .hasPermissions(2),
+
+                    minecraft.level
+                            .registryAccess()
+            );
+
+        } catch (Exception exception) {
+
+            System.err.println(
+                    "[MagicSavedItems] " +
+                            "Could not refresh Creative tabs."
+            );
+
+            exception.printStackTrace();
+        }
+    }
+
+
+    // ==========================================
+    // WRITE SAVED ITEMS
+    // ==========================================
+
     private static boolean writeSavedItems() {
-        Minecraft minecraft = Minecraft.getInstance();
+
+        Minecraft minecraft =
+                Minecraft.getInstance();
 
         if (minecraft.level == null) {
             return false;
         }
 
         try {
-            Files.createDirectories(SAVE_FILE.getParent());
 
-            RegistryOps<JsonElement> ops = RegistryOps.create(
-                    JsonOps.INSTANCE,
-                    minecraft.level.registryAccess()
+            Files.createDirectories(
+                    SAVE_FILE.getParent()
             );
 
-            JsonObject root = new JsonObject();
 
-            for (Map.Entry<String, ItemStack> entry :
-                    SavedItemStore.getSavedItems().entrySet()) {
+            RegistryOps<JsonElement> ops =
+                    RegistryOps.create(
+                            JsonOps.INSTANCE,
+                            minecraft.level.registryAccess()
+                    );
 
-                JsonElement encoded = ItemStack.CODEC
-                        .encodeStart(ops, entry.getValue())
-                        .getOrThrow();
 
-                root.add(entry.getKey(), encoded);
+            JsonObject root =
+                    new JsonObject();
+
+
+            for (
+                    Map.Entry<String, ItemStack> entry :
+                    SavedItemStore
+                            .getSavedItems()
+                            .entrySet()
+            ) {
+
+                JsonElement encoded =
+                        ItemStack.CODEC
+                                .encodeStart(
+                                        ops,
+                                        entry.getValue()
+                                )
+                                .getOrThrow();
+
+                root.add(
+                        entry.getKey(),
+                        encoded
+                );
             }
+
 
             Files.writeString(
                     SAVE_FILE,
@@ -218,63 +426,108 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                     StandardCharsets.UTF_8
             );
 
+
             return true;
 
         } catch (Exception exception) {
+
             exception.printStackTrace();
+
             return false;
         }
     }
 
+
+    // ==========================================
+    // LOAD SAVED ITEMS
+    // ==========================================
+
     private static void loadSavedItems() {
-        Minecraft minecraft = Minecraft.getInstance();
 
-        SavedItemStore.getSavedItems().clear();
+        Minecraft minecraft =
+                Minecraft.getInstance();
 
-        if (minecraft.level == null || !Files.exists(SAVE_FILE)) {
+
+        SavedItemStore
+                .getSavedItems()
+                .clear();
+
+
+        if (
+                minecraft.level == null ||
+                !Files.exists(SAVE_FILE)
+        ) {
             return;
         }
 
+
         try {
-            RegistryOps<JsonElement> ops = RegistryOps.create(
-                    JsonOps.INSTANCE,
-                    minecraft.level.registryAccess()
-            );
 
-            JsonElement fileJson = GSON.fromJson(
-                    Files.readString(
-                            SAVE_FILE,
-                            StandardCharsets.UTF_8
-                    ),
-                    JsonElement.class
-            );
+            RegistryOps<JsonElement> ops =
+                    RegistryOps.create(
+                            JsonOps.INSTANCE,
+                            minecraft.level.registryAccess()
+                    );
 
-            if (fileJson == null || !fileJson.isJsonObject()) {
+
+            JsonElement fileJson =
+                    GSON.fromJson(
+                            Files.readString(
+                                    SAVE_FILE,
+                                    StandardCharsets.UTF_8
+                            ),
+                            JsonElement.class
+                    );
+
+
+            if (
+                    fileJson == null ||
+                    !fileJson.isJsonObject()
+            ) {
                 return;
             }
 
-            for (Map.Entry<String, JsonElement> entry :
-                    fileJson.getAsJsonObject().entrySet()) {
+
+            for (
+                    Map.Entry<String, JsonElement> entry :
+                    fileJson
+                            .getAsJsonObject()
+                            .entrySet()
+            ) {
 
                 try {
-                    ItemStack stack = ItemStack.CODEC
-                            .parse(ops, entry.getValue())
-                            .getOrThrow();
+
+                    ItemStack stack =
+                            ItemStack.CODEC
+                                    .parse(
+                                            ops,
+                                            entry.getValue()
+                                    )
+                                    .getOrThrow();
+
 
                     if (!stack.isEmpty()) {
-                        SavedItemStore.getSavedItems()
-                                .put(entry.getKey(), stack);
+
+                        SavedItemStore
+                                .getSavedItems()
+                                .put(
+                                        entry.getKey(),
+                                        stack
+                                );
                     }
 
                 } catch (Exception ignored) {
+
                     System.err.println(
-                            "[MagicSavedItems] Could not load saved item: " +
-                            entry.getKey()
+                            "[MagicSavedItems] " +
+                                    "Could not load saved item: " +
+                                    entry.getKey()
                     );
                 }
             }
 
         } catch (IOException exception) {
+
             exception.printStackTrace();
         }
     }
