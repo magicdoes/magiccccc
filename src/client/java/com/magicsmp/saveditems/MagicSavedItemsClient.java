@@ -39,7 +39,7 @@ public class MagicSavedItemsClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
 
-        // Load saved items whenever joining a world/server
+        // Load saved items when joining a world/server
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             loadSavedItems();
             refreshCreativeTabs();
@@ -74,7 +74,6 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                             )
             );
 
-
             // ==========================================
             // /deleteitem <name>
             // ==========================================
@@ -101,7 +100,6 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                                             })
                             )
             );
-
 
             // ==========================================
             // /saveditems
@@ -150,7 +148,6 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                             })
             );
 
-
             // ==========================================
             // /reloadsaveditems
             // ==========================================
@@ -160,7 +157,6 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                             .executes(context -> {
 
                                 loadSavedItems();
-
                                 refreshCreativeTabs();
 
                                 context.getSource().sendFeedback(
@@ -178,7 +174,6 @@ public class MagicSavedItemsClient implements ClientModInitializer {
             );
         });
     }
-
 
     // ==========================================
     // SAVE HELD ITEM
@@ -227,8 +222,7 @@ public class MagicSavedItemsClient implements ClientModInitializer {
             return 0;
         }
 
-
-        // Save an exact copy of the held item
+        // Save exact copy
         SavedItemStore
                 .getSavedItems()
                 .put(
@@ -236,8 +230,7 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                         held.copy()
                 );
 
-
-        // Write saved items to disk
+        // Save to file
         if (!writeSavedItems()) {
 
             source.sendError(
@@ -250,11 +243,8 @@ public class MagicSavedItemsClient implements ClientModInitializer {
             return 0;
         }
 
-
-        // IMPORTANT:
-        // Rebuild Creative inventory immediately
+        // Refresh Creative tab immediately
         refreshCreativeTabs();
-
 
         source.sendFeedback(
                 Component.literal(
@@ -266,7 +256,6 @@ public class MagicSavedItemsClient implements ClientModInitializer {
 
         return 1;
     }
-
 
     // ==========================================
     // DELETE SAVED ITEM
@@ -295,7 +284,6 @@ public class MagicSavedItemsClient implements ClientModInitializer {
             return 0;
         }
 
-
         if (!writeSavedItems()) {
 
             source.sendError(
@@ -308,10 +296,8 @@ public class MagicSavedItemsClient implements ClientModInitializer {
             return 0;
         }
 
-
-        // Immediately remove it from Creative tab
+        // Refresh Creative tab immediately
         refreshCreativeTabs();
-
 
         source.sendFeedback(
                 Component.literal(
@@ -324,7 +310,6 @@ public class MagicSavedItemsClient implements ClientModInitializer {
         return 1;
     }
 
-
     // ==========================================
     // REFRESH CREATIVE TABS
     // ==========================================
@@ -336,7 +321,8 @@ public class MagicSavedItemsClient implements ClientModInitializer {
 
         if (
                 minecraft.player == null ||
-                minecraft.level == null
+                minecraft.level == null ||
+                minecraft.player.connection == null
         ) {
             return;
         }
@@ -348,8 +334,11 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                             .connection
                             .enabledFeatures(),
 
-                    minecraft.player
-                            .hasPermissions(2),
+                    minecraft.options
+                            .operatorItemsTab()
+                            .get()
+                            && minecraft.player
+                            .canUseGameMasterBlocks(),
 
                     minecraft.level
                             .registryAccess()
@@ -358,14 +347,12 @@ public class MagicSavedItemsClient implements ClientModInitializer {
         } catch (Exception exception) {
 
             System.err.println(
-                    "[MagicSavedItems] " +
-                            "Could not refresh Creative tabs."
+                    "[MagicSavedItems] Could not refresh Creative tabs."
             );
 
             exception.printStackTrace();
         }
     }
-
 
     // ==========================================
     // WRITE SAVED ITEMS
@@ -386,17 +373,14 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                     SAVE_FILE.getParent()
             );
 
-
             RegistryOps<JsonElement> ops =
                     RegistryOps.create(
                             JsonOps.INSTANCE,
                             minecraft.level.registryAccess()
                     );
 
-
             JsonObject root =
                     new JsonObject();
-
 
             for (
                     Map.Entry<String, ItemStack> entry :
@@ -419,13 +403,11 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                 );
             }
 
-
             Files.writeString(
                     SAVE_FILE,
                     GSON.toJson(root),
                     StandardCharsets.UTF_8
             );
-
 
             return true;
 
@@ -437,7 +419,6 @@ public class MagicSavedItemsClient implements ClientModInitializer {
         }
     }
 
-
     // ==========================================
     // LOAD SAVED ITEMS
     // ==========================================
@@ -447,11 +428,9 @@ public class MagicSavedItemsClient implements ClientModInitializer {
         Minecraft minecraft =
                 Minecraft.getInstance();
 
-
         SavedItemStore
                 .getSavedItems()
                 .clear();
-
 
         if (
                 minecraft.level == null ||
@@ -460,7 +439,6 @@ public class MagicSavedItemsClient implements ClientModInitializer {
             return;
         }
 
-
         try {
 
             RegistryOps<JsonElement> ops =
@@ -468,7 +446,6 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                             JsonOps.INSTANCE,
                             minecraft.level.registryAccess()
                     );
-
 
             JsonElement fileJson =
                     GSON.fromJson(
@@ -479,14 +456,12 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                             JsonElement.class
                     );
 
-
             if (
                     fileJson == null ||
                     !fileJson.isJsonObject()
             ) {
                 return;
             }
-
 
             for (
                     Map.Entry<String, JsonElement> entry :
@@ -505,7 +480,6 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                                     )
                                     .getOrThrow();
 
-
                     if (!stack.isEmpty()) {
 
                         SavedItemStore
@@ -519,8 +493,7 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                 } catch (Exception ignored) {
 
                     System.err.println(
-                            "[MagicSavedItems] " +
-                                    "Could not load saved item: " +
+                            "[MagicSavedItems] Could not load saved item: " +
                                     entry.getKey()
                     );
                 }
