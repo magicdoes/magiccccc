@@ -8,23 +8,16 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.serialization.JsonOps;
 
 import net.fabricmc.api.ClientModInitializer;
-
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
-
 import net.fabricmc.fabric.api.client.creativetab.v1.FabricCreativeModeInventoryScreen;
-
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-
 import net.fabricmc.loader.api.FabricLoader;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
-
 import net.minecraft.network.chat.Component;
-
 import net.minecraft.resources.RegistryOps;
-
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.ItemStack;
 
@@ -38,245 +31,171 @@ public class MagicSavedItemsClient implements ClientModInitializer {
 
     public static final String MOD_ID = "magicsaveditems";
 
-    private static final Gson GSON =
-            new GsonBuilder()
-                    .setPrettyPrinting()
-                    .create();
+    private static final Gson GSON = new GsonBuilder()
+            .setPrettyPrinting()
+            .create();
 
-
-    private static final Path SAVE_FILE =
-            FabricLoader
-                    .getInstance()
-                    .getConfigDir()
-                    .resolve("magicsaveditems")
-                    .resolve("saved_items.json");
-
+    private static final Path SAVE_FILE = FabricLoader.getInstance()
+            .getConfigDir()
+            .resolve("magicsaveditems")
+            .resolve("saved_items.json");
 
     @Override
     public void onInitializeClient() {
 
         // ==========================================
-        // LOAD ITEMS WHEN JOINING
+        // LOAD SAVED ITEMS WHEN JOINING
         // ==========================================
 
-        ClientPlayConnectionEvents.JOIN.register(
-                (handler, sender, client) -> {
-
-                    loadSavedItems();
-
-                    refreshSavedItemsTab();
-                }
-        );
-
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+            loadSavedItems();
+            refreshSavedItemsTab();
+        });
 
         // ==========================================
         // COMMANDS
         // ==========================================
 
-        ClientCommandRegistrationCallback.EVENT.register(
-                (dispatcher, buildContext) -> {
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, buildContext) -> {
 
+            // ==========================================
+            // /saveitem <name>
+            // ==========================================
 
-                    // ==========================================
-                    // /saveitem <name>
-                    // ==========================================
+            dispatcher.register(
+                    ClientCommands.literal("saveitem")
+                            .then(
+                                    ClientCommands.argument(
+                                                    "name",
+                                                    StringArgumentType.greedyString()
+                                            )
+                                            .executes(context -> {
 
-                    dispatcher.register(
+                                                String name =
+                                                        StringArgumentType.getString(
+                                                                context,
+                                                                "name"
+                                                        ).trim();
 
-                            ClientCommands
-                                    .literal("saveitem")
-
-                                    .then(
-
-                                            ClientCommands
-                                                    .argument(
-                                                            "name",
-                                                            StringArgumentType.greedyString()
-                                                    )
-
-                                                    .executes(context -> {
-
-                                                        String name =
-                                                                StringArgumentType
-                                                                        .getString(
-                                                                                context,
-                                                                                "name"
-                                                                        )
-                                                                        .trim();
-
-
-                                                        return saveHeldItem(
-                                                                name,
-                                                                context.getSource()
-                                                        );
-                                                    })
-                                    )
-                    );
-
-
-                    // ==========================================
-                    // /deleteitem <name>
-                    // ==========================================
-
-                    dispatcher.register(
-
-                            ClientCommands
-                                    .literal("deleteitem")
-
-                                    .then(
-
-                                            ClientCommands
-                                                    .argument(
-                                                            "name",
-                                                            StringArgumentType.greedyString()
-                                                    )
-
-                                                    .executes(context -> {
-
-                                                        String name =
-                                                                StringArgumentType
-                                                                        .getString(
-                                                                                context,
-                                                                                "name"
-                                                                        )
-                                                                        .trim();
-
-
-                                                        return deleteSavedItem(
-                                                                name,
-                                                                context.getSource()
-                                                        );
-                                                    })
-                                    )
-                    );
-
-
-                    // ==========================================
-                    // /saveditems
-                    // ==========================================
-
-                    dispatcher.register(
-
-                            ClientCommands
-                                    .literal("saveditems")
-
-                                    .executes(context -> {
-
-                                        if (
-                                                SavedItemStore
-                                                        .getSavedItems()
-                                                        .isEmpty()
-                                        ) {
-
-                                            context
-                                                    .getSource()
-                                                    .sendFeedback(
-
-                                                            Component.literal(
-                                                                    "§eNo saved items yet."
-                                                            )
-                                                    );
-
-                                            return 1;
-                                        }
-
-
-                                        context
-                                                .getSource()
-                                                .sendFeedback(
-
-                                                        Component.literal(
-
-                                                                "§bSaved Items §7(" +
-
-                                                                        SavedItemStore
-                                                                                .getSavedItems()
-                                                                                .size()
-
-                                                                        + "):"
-                                                        )
+                                                return saveHeldItem(
+                                                        name,
+                                                        context.getSource()
                                                 );
+                                            })
+                            )
+            );
 
+            // ==========================================
+            // /deleteitem <name>
+            // ==========================================
 
-                                        for (
-                                                String name :
-                                                SavedItemStore
-                                                        .getSavedItems()
-                                                        .keySet()
-                                        ) {
+            dispatcher.register(
+                    ClientCommands.literal("deleteitem")
+                            .then(
+                                    ClientCommands.argument(
+                                                    "name",
+                                                    StringArgumentType.greedyString()
+                                            )
+                                            .executes(context -> {
 
-                                            context
-                                                    .getSource()
-                                                    .sendFeedback(
+                                                String name =
+                                                        StringArgumentType.getString(
+                                                                context,
+                                                                "name"
+                                                        ).trim();
 
-                                                            Component.literal(
-                                                                    "§7- §f" + name
-                                                            )
-                                                    );
-                                        }
-
-
-                                        return 1;
-                                    })
-                    );
-
-
-                    // ==========================================
-                    // /reloadsaveditems
-                    // ==========================================
-
-                    dispatcher.register(
-
-                            ClientCommands
-                                    .literal("reloadsaveditems")
-
-                                    .executes(context -> {
-
-                                        loadSavedItems();
-
-                                        refreshSavedItemsTab();
-
-
-                                        context
-                                                .getSource()
-                                                .sendFeedback(
-
-                                                        Component.literal(
-
-                                                                "§aReloaded §f" +
-
-                                                                        SavedItemStore
-                                                                                .getSavedItems()
-                                                                                .size()
-
-                                                                        + " §asaved item(s)."
-                                                        )
+                                                return deleteSavedItem(
+                                                        name,
+                                                        context.getSource()
                                                 );
+                                            })
+                            )
+            );
 
+            // ==========================================
+            // /saveditems
+            // ==========================================
 
-                                        return 1;
-                                    })
-                    );
-                }
-        );
+            dispatcher.register(
+                    ClientCommands.literal("saveditems")
+                            .executes(context -> {
+
+                                if (SavedItemStore.getSavedItems().isEmpty()) {
+
+                                    context.getSource().sendFeedback(
+                                            Component.literal(
+                                                    "§eNo saved items yet."
+                                            )
+                                    );
+
+                                    return 1;
+                                }
+
+                                context.getSource().sendFeedback(
+                                        Component.literal(
+                                                "§bSaved Items §7(" +
+                                                        SavedItemStore
+                                                                .getSavedItems()
+                                                                .size() +
+                                                        "):"
+                                        )
+                                );
+
+                                for (
+                                        String name :
+                                        SavedItemStore
+                                                .getSavedItems()
+                                                .keySet()
+                                ) {
+
+                                    context.getSource().sendFeedback(
+                                            Component.literal(
+                                                    "§7- §f" + name
+                                            )
+                                    );
+                                }
+
+                                return 1;
+                            })
+            );
+
+            // ==========================================
+            // /reloadsaveditems
+            // ==========================================
+
+            dispatcher.register(
+                    ClientCommands.literal("reloadsaveditems")
+                            .executes(context -> {
+
+                                loadSavedItems();
+                                refreshSavedItemsTab();
+
+                                context.getSource().sendFeedback(
+                                        Component.literal(
+                                                "§aReloaded §f" +
+                                                        SavedItemStore
+                                                                .getSavedItems()
+                                                                .size() +
+                                                        " §asaved item(s)."
+                                        )
+                                );
+
+                                return 1;
+                            })
+            );
+        });
     }
 
-
     // ==========================================
-    // SAVE ITEM
+    // SAVE HELD ITEM
     // ==========================================
 
     private static int saveHeldItem(
-
             String name,
-
-            net.fabricmc.fabric.api.client.command.v2
-                    .FabricClientCommandSource source
+            net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source
     ) {
 
-        Minecraft minecraft =
-                Minecraft.getInstance();
-
+        Minecraft minecraft = Minecraft.getInstance();
 
         if (
                 minecraft.player == null ||
@@ -284,7 +203,6 @@ public class MagicSavedItemsClient implements ClientModInitializer {
         ) {
 
             source.sendError(
-
                     Component.literal(
                             "You must be in a world/server."
                     )
@@ -293,11 +211,9 @@ public class MagicSavedItemsClient implements ClientModInitializer {
             return 0;
         }
 
-
         if (name.isBlank()) {
 
             source.sendError(
-
                     Component.literal(
                             "Usage: /saveitem <name>"
                     )
@@ -306,16 +222,12 @@ public class MagicSavedItemsClient implements ClientModInitializer {
             return 0;
         }
 
-
         ItemStack held =
-                minecraft.player
-                        .getMainHandItem();
-
+                minecraft.player.getMainHandItem();
 
         if (held.isEmpty()) {
 
             source.sendError(
-
                     Component.literal(
                             "Hold an item in your main hand first."
                     )
@@ -324,11 +236,7 @@ public class MagicSavedItemsClient implements ClientModInitializer {
             return 0;
         }
 
-
-        // ==========================================
-        // SAVE EXACT ITEM COPY
-        // ==========================================
-
+        // Save exact copy of held item
         SavedItemStore
                 .getSavedItems()
                 .put(
@@ -336,59 +244,41 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                         held.copy()
                 );
 
-
-        // ==========================================
-        // WRITE TO FILE
-        // ==========================================
-
+        // Write it to disk
         if (!writeSavedItems()) {
 
             source.sendError(
-
                     Component.literal(
-
                             "The item was stored in memory, " +
-                            "but the save file could not be written."
+                                    "but the save file could not be written."
                     )
             );
 
             return 0;
         }
 
-
-        // ==========================================
-        // UPDATE SAVED ITEMS TAB IMMEDIATELY
-        // ==========================================
-
+        // Immediately refresh Saved Items tab
         refreshSavedItemsTab();
 
-
         source.sendFeedback(
-
                 Component.literal(
                         "§aSaved §f" +
-                        name +
-                        "§a."
+                                name +
+                                "§a."
                 )
         );
-
 
         return 1;
     }
 
-
     // ==========================================
-    // DELETE ITEM
+    // DELETE SAVED ITEM
     // ==========================================
 
     private static int deleteSavedItem(
-
             String name,
-
-            net.fabricmc.fabric.api.client.command.v2
-                    .FabricClientCommandSource source
+            net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource source
     ) {
-
 
         if (
                 SavedItemStore
@@ -398,81 +288,61 @@ public class MagicSavedItemsClient implements ClientModInitializer {
         ) {
 
             source.sendError(
-
                     Component.literal(
-
                             "No saved item named \"" +
-                            name +
-                            "\"."
+                                    name +
+                                    "\"."
                     )
             );
 
             return 0;
         }
-
 
         if (!writeSavedItems()) {
 
             source.sendError(
-
                     Component.literal(
-
                             "Removed from memory, " +
-                            "but the save file could not be written."
+                                    "but the save file could not be written."
                     )
             );
 
             return 0;
         }
 
-
-        // ==========================================
-        // REMOVE FROM TAB IMMEDIATELY
-        // ==========================================
-
+        // Immediately refresh Saved Items tab
         refreshSavedItemsTab();
 
-
         source.sendFeedback(
-
                 Component.literal(
                         "§cDeleted §f" +
-                        name +
-                        "§c."
+                                name +
+                                "§c."
                 )
         );
-
 
         return 1;
     }
 
-
     // ==========================================
-    // REFRESH ONLY OUR CREATIVE TAB
+    // REFRESH ONLY SAVED ITEMS TAB
     // ==========================================
 
     private static void refreshSavedItemsTab() {
 
-        Minecraft minecraft =
-                Minecraft.getInstance();
-
+        Minecraft minecraft = Minecraft.getInstance();
 
         if (
                 minecraft.player == null ||
                 minecraft.level == null ||
                 minecraft.player.connection == null
         ) {
-
             return;
         }
 
-
         try {
 
-            // ==========================================
-            // BUILD CONTENTS FOR SAVED ITEMS ONLY
-            // ==========================================
-
+            // Build parameters for this Creative tab
             CreativeModeTab.ItemDisplayParameters parameters =
                     new CreativeModeTab.ItemDisplayParameters(
 
@@ -491,19 +361,18 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                                     .registryAccess()
                     );
 
-
+            // Rebuild ONLY our Saved Items tab
             MagicSavedItemsMod
                     .SAVED_ITEMS_TAB
                     .buildContents(parameters);
 
-
             // ==========================================
-            // IF CREATIVE INVENTORY IS CURRENTLY OPEN
-            // REFRESH THE SELECTED SAVED ITEMS PAGE
+            // IF CREATIVE INVENTORY IS OPEN
+            // REFRESH IT IF SAVED ITEMS IS SELECTED
             // ==========================================
 
             if (
-                    minecraft.screen
+                    minecraft.gui.screen()
                             instanceof CreativeModeInventoryScreen
                             creativeScreen
             ) {
@@ -511,7 +380,6 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                 FabricCreativeModeInventoryScreen fabricScreen =
                         (FabricCreativeModeInventoryScreen)
                                 creativeScreen;
-
 
                 if (
                         fabricScreen.getSelectedTab()
@@ -525,19 +393,16 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                 }
             }
 
-
         } catch (Exception exception) {
 
             System.err.println(
-
                     "[MagicSavedItems] " +
-                    "Could not refresh Saved Items tab."
+                            "Could not refresh Saved Items tab."
             );
 
             exception.printStackTrace();
         }
     }
-
 
     // ==========================================
     // WRITE SAVED ITEMS
@@ -545,15 +410,11 @@ public class MagicSavedItemsClient implements ClientModInitializer {
 
     private static boolean writeSavedItems() {
 
-        Minecraft minecraft =
-                Minecraft.getInstance();
-
+        Minecraft minecraft = Minecraft.getInstance();
 
         if (minecraft.level == null) {
-
             return false;
         }
-
 
         try {
 
@@ -561,63 +422,43 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                     SAVE_FILE.getParent()
             );
 
-
             RegistryOps<JsonElement> ops =
                     RegistryOps.create(
-
                             JsonOps.INSTANCE,
-
-                            minecraft.level
-                                    .registryAccess()
+                            minecraft.level.registryAccess()
                     );
-
 
             JsonObject root =
                     new JsonObject();
 
-
             for (
                     Map.Entry<String, ItemStack> entry :
-
                     SavedItemStore
                             .getSavedItems()
                             .entrySet()
             ) {
 
                 JsonElement encoded =
-
                         ItemStack.CODEC
                                 .encodeStart(
-
                                         ops,
-
                                         entry.getValue()
                                 )
-
                                 .getOrThrow();
 
-
                 root.add(
-
                         entry.getKey(),
-
                         encoded
                 );
             }
 
-
             Files.writeString(
-
                     SAVE_FILE,
-
                     GSON.toJson(root),
-
                     StandardCharsets.UTF_8
             );
 
-
             return true;
-
 
         } catch (Exception exception) {
 
@@ -627,69 +468,51 @@ public class MagicSavedItemsClient implements ClientModInitializer {
         }
     }
 
-
     // ==========================================
     // LOAD SAVED ITEMS
     // ==========================================
 
     private static void loadSavedItems() {
 
-        Minecraft minecraft =
-                Minecraft.getInstance();
-
+        Minecraft minecraft = Minecraft.getInstance();
 
         SavedItemStore
                 .getSavedItems()
                 .clear();
 
-
         if (
                 minecraft.level == null ||
                 !Files.exists(SAVE_FILE)
         ) {
-
             return;
         }
-
 
         try {
 
             RegistryOps<JsonElement> ops =
                     RegistryOps.create(
-
                             JsonOps.INSTANCE,
-
-                            minecraft.level
-                                    .registryAccess()
+                            minecraft.level.registryAccess()
                     );
-
 
             JsonElement fileJson =
                     GSON.fromJson(
-
                             Files.readString(
-
                                     SAVE_FILE,
-
                                     StandardCharsets.UTF_8
                             ),
-
                             JsonElement.class
                     );
-
 
             if (
                     fileJson == null ||
                     !fileJson.isJsonObject()
             ) {
-
                 return;
             }
 
-
             for (
                     Map.Entry<String, JsonElement> entry :
-
                     fileJson
                             .getAsJsonObject()
                             .entrySet()
@@ -698,42 +521,32 @@ public class MagicSavedItemsClient implements ClientModInitializer {
                 try {
 
                     ItemStack stack =
-
                             ItemStack.CODEC
                                     .parse(
-
                                             ops,
-
                                             entry.getValue()
                                     )
-
                                     .getOrThrow();
-
 
                     if (!stack.isEmpty()) {
 
                         SavedItemStore
                                 .getSavedItems()
                                 .put(
-
                                         entry.getKey(),
-
                                         stack
                                 );
                     }
 
-
                 } catch (Exception ignored) {
 
                     System.err.println(
-
                             "[MagicSavedItems] " +
-                            "Could not load saved item: " +
-                            entry.getKey()
+                                    "Could not load saved item: " +
+                                    entry.getKey()
                     );
                 }
             }
-
 
         } catch (IOException exception) {
 
