@@ -30,6 +30,10 @@ public class MagicSavedItemsMod implements ModInitializer {
     public static final CreativeModeTab SAVED_ITEMS_TAB =
             FabricCreativeModeTab.builder()
 
+                    // ==========================================
+                    // TAB NAME
+                    // ==========================================
+
                     .title(
                             Component.literal("Saved Items")
                     )
@@ -51,19 +55,19 @@ public class MagicSavedItemsMod implements ModInitializer {
                                                 () -> new ItemStack(Items.CHEST)
                                         );
 
-                        // Creative tab icons should always be 1 item
+                        // Creative tab icon must be one item
                         icon.setCount(1);
 
                         return icon;
                     })
 
                     // ==========================================
-                    // SAVED ITEMS
+                    // TAB CONTENTS
                     // ==========================================
 
                     .displayItems((parameters, output) -> {
 
-                        List<ItemStack> added =
+                        List<ItemStack> addedStacks =
                                 new ArrayList<>();
 
                         for (
@@ -73,7 +77,10 @@ public class MagicSavedItemsMod implements ModInitializer {
                                         .values()
                         ) {
 
-                            // Ignore invalid/empty entries
+                            // ==========================================
+                            // SKIP EMPTY / INVALID ITEMS
+                            // ==========================================
+
                             if (
                                     savedStack == null ||
                                     savedStack.isEmpty()
@@ -89,24 +96,24 @@ public class MagicSavedItemsMod implements ModInitializer {
                                     savedStack.copy();
 
                             /*
-                             * Minecraft Creative tabs require
-                             * every displayed ItemStack to have
-                             * a count of exactly 1.
+                             * Minecraft 26.2 requires items being
+                             * registered in a Creative tab to have
+                             * a stack size of exactly 1.
                              *
-                             * This ONLY changes the Creative-tab copy.
-                             * It does NOT modify the saved item.
+                             * This only changes the displayed copy.
+                             * The actual saved ItemStack is untouched.
                              */
                             displayStack.setCount(1);
 
                             // ==========================================
-                            // DUPLICATE CHECK
+                            // DUPLICATE PROTECTION
                             // ==========================================
 
                             boolean duplicate = false;
 
                             for (
                                     ItemStack existing :
-                                    added
+                                    addedStacks
                             ) {
 
                                 if (
@@ -122,12 +129,12 @@ public class MagicSavedItemsMod implements ModInitializer {
                             }
 
                             // ==========================================
-                            // ADD TO CREATIVE TAB
+                            // ADD TO SAVED ITEMS TAB
                             // ==========================================
 
                             if (!duplicate) {
 
-                                added.add(
+                                addedStacks.add(
                                         displayStack.copy()
                                 );
 
@@ -140,7 +147,9 @@ public class MagicSavedItemsMod implements ModInitializer {
 
                     .build();
 
-    }
+    // ==========================================
+    // INITIALIZE MOD
+    // ==========================================
 
     @Override
     public void onInitialize() {
