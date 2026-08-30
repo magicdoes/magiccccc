@@ -34,37 +34,85 @@ public class MagicSavedItemsMod implements ModInitializer {
                             Component.literal("Saved Items")
                     )
 
-                    .icon(() ->
-                            SavedItemStore
-                                    .getSavedItems()
-                                    .values()
-                                    .stream()
-                                    .findFirst()
-                                    .map(ItemStack::copy)
-                                    .orElseGet(
-                                            () -> new ItemStack(Items.CHEST)
-                                    )
-                    )
+                    // ==========================================
+                    // TAB ICON
+                    // ==========================================
+
+                    .icon(() -> {
+
+                        ItemStack icon =
+                                SavedItemStore
+                                        .getSavedItems()
+                                        .values()
+                                        .stream()
+                                        .findFirst()
+                                        .map(ItemStack::copy)
+                                        .orElseGet(
+                                                () -> new ItemStack(Items.CHEST)
+                                        );
+
+                        // Creative tab icons should always be 1 item
+                        icon.setCount(1);
+
+                        return icon;
+                    })
+
+                    // ==========================================
+                    // SAVED ITEMS
+                    // ==========================================
 
                     .displayItems((parameters, output) -> {
 
-                        List<ItemStack> added = new ArrayList<>();
+                        List<ItemStack> added =
+                                new ArrayList<>();
 
                         for (
-                                ItemStack stack :
+                                ItemStack savedStack :
                                 SavedItemStore
                                         .getSavedItems()
                                         .values()
                         ) {
 
+                            // Ignore invalid/empty entries
+                            if (
+                                    savedStack == null ||
+                                    savedStack.isEmpty()
+                            ) {
+                                continue;
+                            }
+
+                            // ==========================================
+                            // CREATE DISPLAY COPY
+                            // ==========================================
+
+                            ItemStack displayStack =
+                                    savedStack.copy();
+
+                            /*
+                             * Minecraft Creative tabs require
+                             * every displayed ItemStack to have
+                             * a count of exactly 1.
+                             *
+                             * This ONLY changes the Creative-tab copy.
+                             * It does NOT modify the saved item.
+                             */
+                            displayStack.setCount(1);
+
+                            // ==========================================
+                            // DUPLICATE CHECK
+                            // ==========================================
+
                             boolean duplicate = false;
 
-                            for (ItemStack existing : added) {
+                            for (
+                                    ItemStack existing :
+                                    added
+                            ) {
 
                                 if (
                                         ItemStack.isSameItemSameComponents(
                                                 existing,
-                                                stack
+                                                displayStack
                                         )
                                 ) {
 
@@ -73,19 +121,26 @@ public class MagicSavedItemsMod implements ModInitializer {
                                 }
                             }
 
+                            // ==========================================
+                            // ADD TO CREATIVE TAB
+                            // ==========================================
+
                             if (!duplicate) {
 
-                                ItemStack copy =
-                                        stack.copy();
+                                added.add(
+                                        displayStack.copy()
+                                );
 
-                                added.add(copy);
-
-                                output.accept(copy);
+                                output.accept(
+                                        displayStack
+                                );
                             }
                         }
                     })
 
                     .build();
+
+    }
 
     @Override
     public void onInitialize() {
